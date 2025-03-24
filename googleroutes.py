@@ -197,29 +197,6 @@ def create_multi_points_shapefile(stats19_data: pd.DataFrame, id_column: str, ou
 
 
 
-
-def main():
-    start_client('AIzaSyCaAdvkq_GUL81bIGNIx-SqwsTpcpxzifg')
-    starttime = datetime.fromisoformat('2025-01-01T00:00:00')
-    deltatime = timedelta(hours=1)
-    endtime = datetime.fromisoformat('2025-01-01T23:00:00')
-    currenttime = starttime
-
-    while currenttime < endtime:
-        print(f'processing {currenttime}')
-        formatted_time = currenttime.strftime('%Y-%m-%d_%H-%M-%S')
-        generate(origins_fname='data/catchment_zones_KML/sheffield/secondary/highstorrspoints.kml',
-                    destination=[53.37617127210855, -1.4957335025739855],
-                    mode='walking',
-                    departure_time=currenttime,
-                    map_output=f'data/timetesting/edward_{formatted_time}.html',
-                    routes_output=f'data/timetesting/edward_{formatted_time}.shp')
-        currenttime += deltatime
-
-if __name__ == '__main__':
-   main()
-
-
         
 
 

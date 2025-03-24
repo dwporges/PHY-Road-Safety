@@ -1,0 +1,18 @@
+/.tmp.drivedownload
+/.tmp.driveupload
+/.venv
+/data
+/Data Analysis.ipynb
+/dataset merging.py
+/Map Routing.ipynb
+/merged_data_2023.csv
+/merging 2017-2023.py
+/Perimiter To School.ipynb
+/QGIS
+/requirements.txt
+/routing.py
+/sheffield_secondary_routing.ipynb
+/South Yorkshire Image.png
+/SouthYorks.png
+/SouthYorkshireHeatmap.png
+/__pycache__

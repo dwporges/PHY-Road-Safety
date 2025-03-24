@@ -144,7 +144,7 @@ def generate(origins_fname: str, destination: str, mode: str='walking', departur
     print(routes_output)
 
     # Save routes to shapefile
-    with fn.open(routes_output, 'w', 'ESRI Shapefile', schema, crs='epsg:4326') as c:
+    with fn.open(routes_output, 'w', 'ESRI Shapefile', schema, crs=glob_crs) as c:
         c.writerecords([{'geometry': mapping(g), 'properties': {'id': i}} for i, g in enumerate(list(geometry.geoms))])
 
     # Plot routes
@@ -172,7 +172,7 @@ def create_school_shapefile(lat: str | float, lng: str | float, output: str='sch
     }
 
     # Save school coords to shapefile
-    with fn.open(output, 'w', 'ESRI Shapefile', schema, crs='EPSG:4326') as c:
+    with fn.open(output, 'w', 'ESRI Shapefile', schema, crs=glob_crs) as c:
         for i, line in enumerate(geometry):
             c.write({'geometry':mapping(line), 'properties': {'id': i}})
 
@@ -190,7 +190,7 @@ def create_multi_points_shapefile(stats19_data: pd.DataFrame, id_column: str, ou
         'properties': {'id': 'str'}
     }
 
-    with fn.open(output, 'w', 'ESRI Shapefile', schema, 'EPSG:4326') as c:
+    with fn.open(output, 'w', 'ESRI Shapefile', schema, crs=glob_crs) as c:
         c.writerecords([{'geometry': mapping(Point(float(row['Longitude']), float(row['Latitude']))), 'properties': {'id': row[id_column]}} for i, row in stats19_data.iterrows()])  
 
     return

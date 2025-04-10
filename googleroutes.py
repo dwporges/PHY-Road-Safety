@@ -6,6 +6,31 @@ import folium as fm
 from shapely.geometry import Point, Polygon, MultiLineString, LineString, mapping
 import fiona as fn
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
+import os
+import shutil as sh
+from typing import List
+
+def depracated(func):
+    """
+    Deprecated decorator for functions
+    """
+    def wrapper(*args, **kwargs):
+        print(f'{func.__name__} is deprecated')
+        return func(*args, **kwargs)
+    return wrapper
+
+@depracated
+def cache(func):
+    """
+    Cache decorator for functions
+    """
+    cache.cache_ = {}
+    def wrapper(origins_fname, destination, mode='walking', departure_time=None, arrival_time=None, map_output='routes.html', routes_output='routes.pkl', driver='ESRI Shapefile'):
+        if origins_fname not in cache.cache_:
+            cache.cache_[origins_fname] = func(origins_fname, destination, mode='walking', departure_time=None, arrival_time=None, map_output='routes.html', routes_output='routes.pkl', driver='ESRI Shapefile')
+        return cache.cache_[origins_fname]
+    return wrapper
 
 def start_client(api_key: str=None, crs: str='epsg:4326') -> None:
     """
@@ -13,12 +38,12 @@ def start_client(api_key: str=None, crs: str='epsg:4326') -> None:
     :param api_key: str: API key
     """
     if api_key:
-        global client
-        client = gm.Client(key=api_key)
-        global cache
-        cache = {}
+        global client, glob_crs
 
-        global glob_crs
+        # Start Google Maps client
+        client = gm.Client(key=api_key)
+
+        # Set global CRS
         glob_crs = crs
         return
     else:
@@ -106,7 +131,10 @@ def plot_routes(routes: list[list[list[str]]], mode: str='walking', output: str=
 # Main generation function
 # This function generates routes from a KML file, destination address and travel mode and saves them to a shapefile and a map
 # The shapefile is useful for further analysis in GIS software
-def generate(origins_fname: str, destination: str, mode: str='walking', departure_time: datetime=None, arrival_time: datetime=None, map_output: str='routes.html', routes_output: str='routes.pkl', access_cache: bool=False, generate_cache: bool=False) -> None:
+
+
+
+def generate(origins_fname: str, destination: str, mode: str='walking', departure_time: datetime=None, arrival_time: datetime=None, map_output: str='routes.html', routes_output: str='routes.pkl', driver: str='ESRI Shapefile') -> List | None:
     """
     Generate routes from a KML file
     :param origins_fname: str: KML file name
@@ -117,34 +145,27 @@ def generate(origins_fname: str, destination: str, mode: str='walking', departur
     :param map_output: str: Output map file name
     :param routes_output: str: Output routes file name
     """
+    # Get routes
 
-    # Get routes from KML file
-    if access_cache and not generate_cache:
-        assert cache, 'Cache is empty'
-        if origins_fname in cache.keys():
-            coords = cache[origins_fname]
-    elif access_cache and generate_cache:
-        if origins_fname in cache.keys():
-            coords = cache[origins_fname]
-        else:
-            coords = get_routes(origins_fname, destination, mode, departure_time, arrival_time)
-            cache[origins_fname] = coords
-    elif generate_cache:
-        coords = get_routes(origins_fname, destination, mode, departure_time, arrival_time)
-        cache[origins_fname] = coords
-    else:
-        coords = get_routes(origins_fname, destination, mode, departure_time, arrival_time)
+    print('Generating routes...')
+    coords = get_routes(origins_fname, destination, mode, departure_time, arrival_time)
+
+    print('Routes generated')
     
     # Generate MultiLineString geometry, transposing coordinates
     geometry = MultiLineString([[L[::-1] for L in sub] for sub in coords])
 
+    print('Geometry generated')
+
     # Generate schema for shapefile
     schema = {'geometry': 'LineString', 'properties': {'id': 'int'}}
+
+    print('Schema generated')
 
     print(routes_output)
 
     # Save routes to shapefile
-    with fn.open(routes_output, 'w', 'ESRI Shapefile', schema, crs=glob_crs) as c:
+    with fn.open(routes_output, 'w', driver=driver, schema=schema, crs=glob_crs) as c:
         c.writerecords([{'geometry': mapping(g), 'properties': {'id': i}} for i, g in enumerate(list(geometry.geoms))])
 
     # Plot routes
@@ -195,8 +216,56 @@ def create_multi_points_shapefile(stats19_data: pd.DataFrame, id_column: str, ou
 
     return
 
+def move_geodb_shp(src: str, dst: str) -> None:
+    """
+    Helper function to extract shapefiles from a geodatabase and move them to a new location
+    :param src: str: Source file name
+    :param dest: str: Destination file name
+    """
+    # Move shapefile to new location
+    for f in os.listdir(src):
+        if f.endswith('.shp'):
+            sh.move(os.path.join(src, f), os.path.join(dst, f))
+            
+    return
 
+def convert_crs(src: str, dst: str, crs: str, engine: str='fiona') -> None:
+    """
+    Convert shapefile to a new CRS
+    :param src: str: Source file name or directory
+    :param dest: str: Destination file name
+    :param crs: str: CRS
+    :param engine: str: Engine to use for conversion
+    """
+    if not os.path.isdir(src):
+        assert src.lower().endswith('.shp') or src.lower().endswith('.gpkg'), 'Source file must be a shapefile or geopackage'
 
-        
+        f = gpd.read_file(src)
+        f.to_crs(crs, inplace=True)
+        f.to_file(f'{dst}', driver='ESRI Shapefile', mode='w', engine=engine, crs=crs)
+        print(f'Converted {src} to {crs}')
 
+        return
+    
+    for file in os.listdir(src):
+        # Check if file is a shapefile
+        # Skip if file is not a shapefile
 
+        driver = None
+
+        match file.split('.')[-1].lower():
+            case 'shp':
+                driver = 'ESRI Shapefile'
+            case 'gpkg':
+                driver = 'GPKG'
+            case 'geojson':
+                driver = 'GeoJSON'
+            case _:
+                continue
+
+        gdf = gpd.read_file(f'{src}/{file}')
+        gdf.to_crs(crs, inplace=True)
+        gdf.to_file(f'{dst}/{file}', driver=driver, mode='w', engine=engine, crs=crs)
+        print(f'Converted {file} to {crs}')
+
+    return

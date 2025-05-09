@@ -1,0 +1,9 @@
+pandas==2.2.3
+geopandas==1.0.1
+googlemaps==4.10.0
+gmplot==1.4.1
+folium==0.18.0
+pyshp==2.3.1
+fiona==1.10.1
+shapely==2.0.6
+numpy==2.1.3

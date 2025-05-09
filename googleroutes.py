@@ -10,6 +10,10 @@ from dotenv import load_dotenv
 import os
 import shutil as sh
 from typing import List
+import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 def depracated(func):
     """
@@ -134,7 +138,7 @@ def plot_routes(routes: list[list[list[str]]], mode: str='walking', output: str=
 
 
 
-def generate(origins_fname: str, destination: str, mode: str='walking', departure_time: datetime=None, arrival_time: datetime=None, map_output: str='routes.html', routes_output: str='routes.pkl', driver: str='ESRI Shapefile') -> List | None:
+def generate(origins_fname: str, destination: str, mode: str='walking', departure_time: datetime=None, arrival_time: datetime=None, map_output: str='routes.html', routes_output: str='routes.pkl', driver: str='ESRI Shapefile', crs: str=None) -> List | None:
     """
     Generate routes from a KML file
     :param origins_fname: str: KML file name
@@ -147,29 +151,151 @@ def generate(origins_fname: str, destination: str, mode: str='walking', departur
     """
     # Get routes
 
-    print('Generating routes...')
+    logger.info('Generating routes...')
     coords = get_routes(origins_fname, destination, mode, departure_time, arrival_time)
 
-    print('Routes generated')
+    logger.info('Routes generated')
     
     # Generate MultiLineString geometry, transposing coordinates
     geometry = MultiLineString([[L[::-1] for L in sub] for sub in coords])
 
-    print('Geometry generated')
+    logger.info('Geometry generated')
 
     # Generate schema for shapefile
     schema = {'geometry': 'LineString', 'properties': {'id': 'int'}}
 
-    print('Schema generated')
+    logger.info('Schema generated')
 
-    print(routes_output)
+    logger.info(f'Saving routes to {routes_output}...')
 
     # Save routes to shapefile
-    with fn.open(routes_output, 'w', driver=driver, schema=schema, crs=glob_crs) as c:
+    with fn.open(routes_output, 'w', driver=driver, schema=schema, crs=crs if crs else glob_crs) as c:
         c.writerecords([{'geometry': mapping(g), 'properties': {'id': i}} for i, g in enumerate(list(geometry.geoms))])
+    
+    logger.info('Routes saved')
 
     # Plot routes
     plot_routes(coords, mode, map_output)
+
+    return
+
+def generate_from_isochrones(dataframe: gpd.GeoDataFrame,
+                             school_coords_column: tuple[str, str]=('CENTER_LON', 'CENTER_LAT'),
+                             mode: str='walking', 
+                             geometry_column: str=None, 
+                             schools_column: str='school',
+                             departure_time: datetime=None, arrival_time: datetime=None, 
+                             map_output: str='routes.html', 
+                             routes_output: str=None, 
+                             driver: str='ESRI Shapefile', 
+                             crs: str=None) -> None:
+    """
+    Generate routes from a GeoDataFrame
+    :param dataframe: gpd.GeoDataFrame: GeoDataFrame with isochrones and school coordinates
+    :param school_coords_column: tuple[str, str]: School coordinates column name. Provide in the order LONG, LAT
+    :param mode: str: Travel mode
+    :param geometry_column: str: Geometry column name
+    :param schools_column: str: Schools column name. If not provided, the default is 'schools'
+    :param departure_time: datetime: Departure time
+    :param arrival_time: datetime: Arrival time
+    :param map_output: str: Output map file name
+    :param routes_output: str: Output routes folder name
+    :param driver: str: Driver to use for saving shapefile
+    :param crs: str: CRS to use for saving shapefile
+    """
+
+    df = dataframe.copy()
+
+    # Check if geometry column is provided
+    if geometry_column is not None:
+        try:
+            df.geometry = df[geometry_column]
+        except KeyError:
+            raise KeyError(f'{geometry_column} column not found in dataframe')
+    elif 'geometry' in df.columns:
+        try:
+            df.geometry = df['geometry']
+        except KeyError:
+            raise KeyError('No geometry column found in dataframe')
+    else:
+        logger.info('No geometry column provided, using default geometry column')
+
+    # Check if schools column is provided and valid
+    try: 
+        schools = df[schools_column]
+        if not isinstance(schools, pd.Series):
+            raise ValueError(f'{schools_column} column is not a valid Series')
+    except KeyError:
+        raise KeyError(f'{schools_column} column not found in dataframe')
+        
+    # Check if school coordinates column is provided and valid
+    if len(school_coords_column) != 2:
+        raise ValueError(f'{school_coords_column} column is not a valid Series')
+    if school_coords_column[0] not in df.columns or school_coords_column[1] not in df.columns:
+        raise ValueError(f'{school_coords_column} column is not a valid Series')
+
+    if routes_output is not None:
+        if not os.path.isdir(routes_output):
+            if '.' in routes_output:
+                raise ValueError(f'{routes_output} is not a valid directory (hint: routes_output contains a \'.\' but should be a directory and not a file)')
+            else:
+                raise ValueError(f'{routes_output} is not a valid directory or does not exist')
+    
+    # Check if driver is valid and set file extension
+    match driver:
+            case 'ESRI Shapefile':
+                ext = '.shp'
+            case 'GPKG':
+                ext = '.gpkg'
+            case 'GeoJSON':
+                ext = '.geojson'
+            case _:
+                raise ValueError(f'{driver} is not a valid driver. Supported drivers are ESRI Shapefile, GPKG and GeoJSON')
+            
+    for i, row in df.iterrows():
+        # Get school coordinates
+        origins = [pair[::-1] for pair in np.asarray(df.geometry.loc[i].exterior.coords.xy).T.tolist()] # Yummy one-liner :)
+        # Get destination coordinates
+        destination = [row[school_coords_column[1]], row[school_coords_column[0]]]
+        # Get school name
+        school_name  = row[schools_column]
+
+        # Get routes
+        logger.info(f'Generating routes for {school_name}...')
+
+        logger.debug(f'Origins: {origins}')
+        logger.debug(f'Destination: {destination}')
+        logger.debug(f'School coords from df: {row[school_coords_column[1]], row[school_coords_column[0]]}')
+        logger.debug(f'Isochrone coords: {df.geometry.loc[i]}')
+
+        routes = [client.directions(origin=origin, destination=destination, mode=mode, region='uk', alternatives=True, departure_time=departure_time, arrival_time=arrival_time) for origin in origins]
+
+        # Get polylines from routes in list format
+        coords = [get_polyline_from_route(route) for route in routes if route != []]
+
+        logger.debug(f'Routes generated')
+        
+        # Generate MultiLineString geometry, transposing coordinates
+        geometry = MultiLineString([[L[::-1] for L in sub] for sub in coords])
+
+        logger.debug(f'Geometry generated')
+
+        # Generate schema for shapefile
+        schema = {'geometry': 'LineString', 'properties': {'id': 'int'}}
+
+        logger.debug(f'Schema generated')
+            
+        logger.info(f'Saving routes to {routes_output}/{school_name}{ext}...')
+            
+
+        # Save routes to shapefile
+        with fn.open(os.path.join(routes_output, school_name)+ext, 'w', driver=driver, schema=schema, crs=crs if crs else glob_crs) as c:
+            c.writerecords([{'geometry': mapping(g), 'properties': {'id': i}} for i, g in enumerate(list(geometry.geoms))])
+        
+        logger.debug(f'Routes saved')
+
+        # Plot routes
+        plot_routes(coords, mode, map_output)
 
     return
 
@@ -269,3 +395,32 @@ def convert_crs(src: str, dst: str, crs: str, engine: str='fiona') -> None:
         print(f'Converted {file} to {crs}')
 
     return
+
+
+def main():
+    """
+    Main function to run the script
+    """
+
+    logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    logger = logging.getLogger(__name__)
+    
+    
+    # Load environment variables
+    load_dotenv()
+
+    # Get API key from environment variables
+    api_key = os.getenv('API_KEY')
+
+    isochrones = gpd.read_file('data/isochrones/iso1.gpkg')
+
+    isotest = isochrones.iloc[7:8]
+    print(isotest)
+
+    start_client(api_key, crs='epsg:4326')
+
+    generate_from_isochrones(isotest, routes_output='data/all/test', driver='GPKG')
+
+
+if __name__ == '__main__': 
+    main()

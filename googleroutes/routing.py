@@ -1,28 +1,31 @@
-from .config import get_client, get_crs
-from datetime import datetime
-from ._utils._route_utils import _plot_routes, _get_routes_from_kml, _get_polyline_from_route
-from ._utils._ext_checks import validate_file_extension
 import logging
-from shapely.geometry import MultiLineString, LineString, mapping
+import os
+from datetime import datetime
 from typing import List
+
 import fiona as fn
 import geopandas as gpd
-import os
 import numpy as np
 import pandas as pd
+from shapely.geometry import MultiLineString, mapping
+
+from ._utils._ext_checks import validate_file_extension
+from ._utils._route_utils import _plot_routes, _get_routes_from_kml, _get_polyline_from_route
+from .config import get_client, get_crs
 
 logger = logging.getLogger(__name__)
+
 
 # Set the path to the Google Maps API key
 
 def get_directions(
-    origin: str,
-    destination: str,
-    mode: str = 'driving',
-    departure_time: datetime = None,
-    arrival_time: datetime = None,
-    alternatives: bool = False,
-    region: str = 'uk'):
+        origin: str,
+        destination: str,
+        mode: str = 'driving',
+        departure_time: datetime = None,
+        arrival_time: datetime = None,
+        alternatives: bool = False,
+        region: str = 'uk'):
     """
     Get directions from origin to destination using Google Maps API.
     
@@ -52,9 +55,10 @@ def get_directions(
     return directions
 
 
-def generate_from_kml(routes_output:str, origins_fname: str, destination: str, mode: str = 'walking', departure_time: datetime = None,
-             arrival_time: datetime = None, map_output: str = 'routes.html',
-             crs: str = None, plot_routes: bool = False, **kwargs) -> List | None:
+def generate_from_kml(routes_output: str, origins_fname: str, destination: str, mode: str = 'walking',
+                      departure_time: datetime = None,
+                      arrival_time: datetime = None, map_output: str = 'routes.html',
+                      crs: str = None, plot_routes: bool = False, **kwargs) -> List | None:
     """
     Generate routes from a KML file
 
@@ -104,6 +108,7 @@ def generate_from_kml(routes_output:str, origins_fname: str, destination: str, m
         _plot_routes(coords, mode, map_output)
 
     return
+
 
 @validate_file_extension()
 def generate_from_isochrones(dataframe: gpd.GeoDataFrame,

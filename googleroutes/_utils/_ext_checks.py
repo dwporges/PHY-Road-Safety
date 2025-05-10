@@ -1,13 +1,14 @@
-import os
-from typing import List, Callable, Any
 import functools
+import os
+from typing import List, Callable
 
 
 class FileExtensionError(Exception):
     """
     Custom exception for file extension errors.
     """
-    def __init__(self, ext: str, message: str=None):
+
+    def __init__(self, ext: str, message: str = None):
         self.ext = ext
         if message:  # If a custom message is provided, use it
             self.message = message
@@ -19,8 +20,7 @@ class FileExtensionError(Exception):
         super().__init__(self.message)
 
 
-
-def validate_file_extension(valid_extensions: List[str]=None) -> Callable:
+def validate_file_extension(valid_extensions: List[str] = None) -> Callable:
     """
     Decorator to validate file extensions and inject the appropriate driver.
     
@@ -33,9 +33,9 @@ def validate_file_extension(valid_extensions: List[str]=None) -> Callable:
     """
     if valid_extensions is None:
         valid_extensions = ['.geojson', '.gpkg', '.shp']
-    
+
     valid_extensions = _format_valid_extensions(valid_extensions)
-    
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(filepath: str, *args, **kwargs):
@@ -53,7 +53,6 @@ def validate_file_extension(valid_extensions: List[str]=None) -> Callable:
 
             print(f"File extension: {ext}")
 
-            
             if ext not in valid_extensions:
                 if skip_invalid:
                     # If skip_invalid is True, just return the function
@@ -62,7 +61,7 @@ def validate_file_extension(valid_extensions: List[str]=None) -> Callable:
                     # If the extension is not valid and skip_invalid is False, raise an error
                     message = f"Invalid file extension: {ext}. Supported extensions: {', '.join(valid_extensions)}"
                     raise FileExtensionError(ext, message)
-            
+
             # Determine driver if not provided
             if 'driver' not in kwargs:
                 try:
@@ -71,13 +70,12 @@ def validate_file_extension(valid_extensions: List[str]=None) -> Callable:
                     # If we can't determine driver but extension is valid, 
                     # let the function handle it
                     pass
-            
-            return func(filepath, *args, **kwargs)
-        
-        return wrapper
-    
-    return decorator
 
+            return func(filepath, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 def _format_valid_extensions(valid_extensions: List[str]) -> List[str]:
@@ -89,7 +87,7 @@ def _format_valid_extensions(valid_extensions: List[str]) -> List[str]:
     return ['' if ext == '' else ext.lower() if ext.startswith('.') else '.' + ext.lower() for ext in valid_extensions]
 
 
-def check_file_extension(file_path: str, valid_extensions: List[str], message: str=None) -> None:
+def check_file_extension(file_path: str, valid_extensions: List[str], message: str = None) -> None:
     """
     Check if the file has a valid extension.
     :param file_path: str: File path
@@ -101,14 +99,14 @@ def check_file_extension(file_path: str, valid_extensions: List[str], message: s
     ext = ext.lower()
 
     valid_extensions = _format_valid_extensions(valid_extensions)
-    
+
     if ext not in valid_extensions:
         raise FileExtensionError(ext, message)
-    
+
     return True
 
 
-def choose_driver(file_path: str, message: str=None) -> str:
+def choose_driver(file_path: str, message: str = None) -> str:
     """
     Choose the appropriate driver based on the file extension.
     :param file_path: str: File path
@@ -131,4 +129,3 @@ def choose_driver(file_path: str, message: str=None) -> str:
             return 'GeoJSON'
         case _:
             raise FileExtensionError(ext, "Could not determine driver for file extension")
-

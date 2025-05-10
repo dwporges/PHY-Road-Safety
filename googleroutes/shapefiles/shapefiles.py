@@ -1,14 +1,12 @@
-import os
-from shapely.geometry import Point, mapping
 import fiona as fn
 import geopandas as gpd
 import pandas as pd
-from .._utils._ext_checks import check_file_extension, choose_driver, FileExtensionError
-from ..config import set_crs, get_crs
+from shapely.geometry import Point, mapping
+
+from ..config import get_crs
 
 
-
-def create_school_shapefile(lat: str | float, lng: str | float, output: str='school.shp') -> None:
+def create_school_shapefile(lat: str | float, lng: str | float, output: str = 'school.shp') -> None:
     """
     Create a shapefile for a school
 
@@ -30,12 +28,14 @@ def create_school_shapefile(lat: str | float, lng: str | float, output: str='sch
 
     # Save school coords to shapefile
     with fn.open(output, 'w', 'ESRI Shapefile', schema, crs=glob_crs) as c:
-        c.write({'geometry':mapping(geometry), 'properties': {'id': int(1)}})
+        c.write({'geometry': mapping(geometry), 'properties': {'id': int(1)}})
 
     return
 
 
-def create_multi_points_shapefile(dataframe: pd.DataFrame | gpd.GeoDataFrame, id_column: str, output: str='schools.shp', longitude_column: str='Longitude', latitude_column: str='Latitude') -> None:
+def create_multi_points_shapefile(dataframe: pd.DataFrame | gpd.GeoDataFrame, id_column: str,
+                                  output: str = 'schools.shp', longitude_column: str = 'Longitude',
+                                  latitude_column: str = 'Latitude') -> None:
     """
     Create a shapefile for multiple points
 
@@ -58,6 +58,7 @@ def create_multi_points_shapefile(dataframe: pd.DataFrame | gpd.GeoDataFrame, id
     }
 
     with fn.open(output, 'w', 'ESRI Shapefile', schema, crs=glob_crs) as c:
-        c.writerecords([{'geometry': mapping(point), 'properties': {'id': row[id_column]}} for point, i, row in zip(geometry, dataframe.iterrows())])  
+        c.writerecords([{'geometry': mapping(point), 'properties': {'id': row[id_column]}} for point, i, row in
+                        zip(geometry, dataframe.iterrows())])
 
     return

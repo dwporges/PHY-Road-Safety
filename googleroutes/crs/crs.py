@@ -1,13 +1,14 @@
 import os
-import sys
+
 import geopandas as gpd
-from googleroutes._utils._ext_checks import check_file_extension, choose_driver, FileExtensionError, validate_file_extension
+
+from googleroutes._utils._ext_checks import FileExtensionError, \
+    validate_file_extension
 from ..config import set_crs, get_crs
 
 
-
 @validate_file_extension()
-def _convert_crs_file(source: str, destination: str, crs: str, engine: str='fiona', **kwargs) -> None:
+def _convert_crs_file(source: str, destination: str, crs: str, engine: str = 'fiona', **kwargs) -> None:
     """
     Convert single file to a new CRS. Supports shapefiles, geopackages, and geojson files.
     :param source: str: Source file name
@@ -29,7 +30,8 @@ def _convert_crs_file(source: str, destination: str, crs: str, engine: str='fion
 
     return
 
-def _convert_crs_directory(source: str, destination: str, crs: str, engine: str='fiona', **kwargs) -> None:
+
+def _convert_crs_directory(source: str, destination: str, crs: str, engine: str = 'fiona', **kwargs) -> None:
     """
     Convert all files in a directory to a new CRS. Supports shapefiles, geopackages, and geojson files.
     :param source: str: Source directory name
@@ -46,11 +48,11 @@ def _convert_crs_directory(source: str, destination: str, crs: str, engine: str=
     if not os.path.isdir(destination):
         raise FileExtensionError('Destination is not a directory')
 
-    for file in os.listdir(source):     
+    for file in os.listdir(source):
         _convert_crs_file(os.path.join(source, file), os.path.join(destination, file), crs, engine=engine, **kwargs)
 
     return
-    
+
 
 def change_crs(crs: str) -> None:
     """
@@ -70,7 +72,7 @@ def crs() -> str:
     return get_crs()
 
 
-def convert_crs(source: str, destination: str, crs: str, engine: str='fiona', skip_invalid: bool=False) -> None:
+def convert_crs(source: str, destination: str, crs: str, engine: str = 'fiona', skip_invalid: bool = False) -> None:
     """
     Convert shapefile to a new CRS. Supports shapefiles, geopackages, and geojson files.
     :param source: str: Source file name or directory
@@ -82,7 +84,7 @@ def convert_crs(source: str, destination: str, crs: str, engine: str='fiona', sk
     """
     if not os.path.exists(source):
         raise FileExtensionError('Source file does not exist')
-    
+
     if not os.path.isdir(source):
         _convert_crs_file(source, destination, crs, engine)
     else:

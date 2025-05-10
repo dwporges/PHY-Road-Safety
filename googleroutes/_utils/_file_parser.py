@@ -1,6 +1,7 @@
 import geopandas as gpd
 
-def read_kml(fname: str=None, transpose: bool=False) -> list[list[str]]:
+
+def read_kml(fname: str = None, transpose: bool = False) -> list[list[str]]:
     """
     Read a KML file and return the coordinates of the geometries.
     

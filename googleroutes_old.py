@@ -342,60 +342,6 @@ def create_multi_points_shapefile(stats19_data: pd.DataFrame, id_column: str, ou
 
     return
 
-def move_geodb_shp(src: str, dst: str) -> None:
-    """
-    Helper function to extract shapefiles from a geodatabase and move them to a new location
-    :param src: str: Source file name
-    :param dest: str: Destination file name
-    """
-    # Move shapefile to new location
-    for f in os.listdir(src):
-        if f.endswith('.shp'):
-            sh.move(os.path.join(src, f), os.path.join(dst, f))
-            
-    return
-
-def convert_crs(src: str, dst: str, crs: str, engine: str='fiona') -> None:
-    """
-    Convert shapefile to a new CRS
-    :param src: str: Source file name or directory
-    :param dest: str: Destination file name
-    :param crs: str: CRS
-    :param engine: str: Engine to use for conversion
-    """
-    if not os.path.isdir(src):
-        assert src.lower().endswith('.shp') or src.lower().endswith('.gpkg'), 'Source file must be a shapefile or geopackage'
-
-        f = gpd.read_file(src)
-        f.to_crs(crs, inplace=True)
-        f.to_file(f'{dst}', driver='ESRI Shapefile', mode='w', engine=engine, crs=crs)
-        print(f'Converted {src} to {crs}')
-
-        return
-    
-    for file in os.listdir(src):
-        # Check if file is a shapefile
-        # Skip if file is not a shapefile
-
-        driver = None
-
-        match file.split('.')[-1].lower():
-            case 'shp':
-                driver = 'ESRI Shapefile'
-            case 'gpkg':
-                driver = 'GPKG'
-            case 'geojson':
-                driver = 'GeoJSON'
-            case _:
-                continue
-
-        gdf = gpd.read_file(f'{src}/{file}')
-        gdf.to_crs(crs, inplace=True)
-        gdf.to_file(f'{dst}/{file}', driver=driver, mode='w', engine=engine, crs=crs)
-        print(f'Converted {file} to {crs}')
-
-    return
-
 
 def main():
     """

@@ -20,7 +20,7 @@ class FileExtensionError(Exception):
         super().__init__(self.message)
 
 
-def validate_file_extension(valid_extensions: List[str] = None) -> Callable:
+def validate_file_extension(valid_extensions: List[str] = None, path_param_name: str = 'filepath') -> Callable:
     """
     Decorator to validate file extensions and inject the appropriate driver.
     
@@ -38,8 +38,11 @@ def validate_file_extension(valid_extensions: List[str] = None) -> Callable:
 
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
-        def wrapper(filepath: str, *args, **kwargs):
+        def wrapper(*args, **kwargs):
             # Get skip_invalid from kwargs
+
+            filepath = kwargs.get(path_param_name)
+            
             skip_invalid = kwargs.get('skip_invalid', False)
 
             print(skip_invalid)

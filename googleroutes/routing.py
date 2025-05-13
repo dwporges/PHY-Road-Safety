@@ -110,7 +110,6 @@ def generate_from_kml(routes_output: str, origins_fname: str, destination: str, 
     return
 
 
-@validate_file_extension()
 def generate_from_isochrones(dataframe: gpd.GeoDataFrame,
                              school_coords_column: tuple[str, str] = ('CENTER_LON', 'CENTER_LAT'),
                              mode: str = 'walking',
